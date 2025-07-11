@@ -140,8 +140,9 @@ oc get oscp
 
 ~~~bash
 DATAPLANE_TOTAL_NODES=1 make edpm_wait_deploy
-oc -n openstack rsh openstackclient
-openstack compute service list
-exit
+# To check what was created:
+#   oc -n openstack rsh openstackclient
+#   openstack compute service list
+#   exit
 ~~~
 

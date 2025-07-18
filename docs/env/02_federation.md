@@ -488,7 +488,7 @@ sudo ssh -L 443:keystone-public-openstack.apps-crc.testing:443 -N -i .ssh/<PRIVA
 ~~~
 
 
-After that open your browser and go to `horizon-openstack.apps-crc.testing, on `Authenticate using` choose `OpenID Connect` and click on `Sign In`.
+After that open your browser and go to `horizon-openstack.apps-crc.testing`, on `Authenticate using` choose `OpenID Connect` and click on `Sign In`.
 
 ![Horizon Sign In](horizon_01.png)
 

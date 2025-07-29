@@ -175,17 +175,28 @@ keycloak_realm.yaml
       cifmw_federation_keycloak_admin_username: admin
       cifmw_federation_keycloak_admin_password: nomoresecrets
       cifmw_federation_keycloak_realm: openstack
+      cifmw_federation_keycloak_realm2: openstack2
       cifmw_federation_keycloak_client_id: rhoso
+      cifmw_federation_keycloak_client2_id: rhoso2
       cifmw_federation_keystone_url: "https://keystone-public-openstack.apps-crc.testing"
       cifmw_federation_keycloak_client_secret: COX8bmlKAWn56XCGMrKQJj7dgHNAOl6f
+      cifmw_federation_keycloak_client2_secret: COX8bmlKAWn56XCGMrKQJj7dgHNAOl6f
+      cifmw_federation_keycloak_idp_name: kcIDP
+      cifmw_federation_keycloak_idp2_name: kcIDP2
       cifmw_federation_horizon_url: "https://horizon-openstack.apps-crc.testing"
       cifmw_federation_keycloak_url_validate_certs: false
       cifmw_federation_keycloak_testgroup1_name: kctestgroup1
       cifmw_federation_keycloak_testgroup2_name: kctestgroup2
+      cifmw_federation_keycloak_testgroup3_name: kctestgroup3
+      cifmw_federation_keycloak_testgroup4_name: kctestgroup4
       cifmw_federation_keycloak_testuser1_username: kctestuser1
       cifmw_federation_keycloak_testuser1_password: nomoresecrets1
       cifmw_federation_keycloak_testuser2_username: kctestuser2
       cifmw_federation_keycloak_testuser2_password: nomoresecrets2
+      cifmw_federation_keycloak_testuser3_username: kctestuser3
+      cifmw_federation_keycloak_testuser3_password: nomoresecrets3
+      cifmw_federation_keycloak_testuser4_username: kctestuser4
+      cifmw_federation_keycloak_testuser4_password: nomoresecrets4
 
   - name: Create a Keycloak realm
     community.general.keycloak_realm:
@@ -195,10 +206,25 @@ keycloak_realm.yaml
       auth_realm: master
       auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
       auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
-      id: "{{ cifmw_federation_keycloak_realm }}"
-      realm: "{{ cifmw_federation_keycloak_realm }}"
+      id: "{{ item }}"
+      realm: "{{ item }}"
       enabled: true
       state: present
+    loop:
+      - cifmw_federation_keycloak_realm
+      - cifmw_federation_keycloak_realm2
+
+  - name: Create a Keycloak realm2
+    community.general.keycloak_realm:
+      auth_client_id: admin-cli
+      validate_certs: false
+      auth_keycloak_url: "{{ cifmw_federation_keycloak_url }}/auth"
+      auth_realm: master
+      auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
+      auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
+      id: "openstack2"
+      realm: "openstack2"
+      enabled: true
 
   - name: Create Keycloak client
     community.general.keycloak_client:
@@ -209,19 +235,20 @@ keycloak_realm.yaml
       auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
       auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
       state: present
-      realm: "{{ cifmw_federation_keycloak_realm }}"
-      client_id: "{{ cifmw_federation_keycloak_client_id }}"
-      name: 'RHOSO Client'
-      description: 'RHOSO client for keystone federation'
+      realm: "{{ item.name }}"
+      client_id: "{{ item.client_id }}"
+      name: 'RHOSO Client for {{ item.name }}'
+      description: 'RHOSO client for keystone federation in {{ item.name }} realm'
       root_url: "{{ cifmw_federation_keystone_url }}"
       admin_url: "{{ cifmw_federation_keystone_url }}"
       base_url: '/dashboard/project'
       enabled: true
       client_authenticator_type: client-secret
-      secret: "{{ cifmw_federation_keycloak_client_secret }}"
+      secret: "{{ item.client_secret }}"
       redirect_uris:
-        - "{{ cifmw_federation_keystone_url }}/v3/auth/OS-FEDERATION/identity_providers/kcIDP/protocols/openid/websso/"
+        - "{{ cifmw_federation_keystone_url }}/v3/auth/OS-FEDERATION/identity_providers/{{ item.idp_name }}/protocols/openid/websso/"
         - "{{ cifmw_federation_keystone_url }}/v3/auth/OS-FEDERATION/websso/openid"
+        - "{{ cifmw_federation_keystone_url }}/v3/redirect_uri"
         - "{{ cifmw_federation_horizon_url }}/dashboard/auth/websso/"
       web_origins:
         - "{{ cifmw_federation_keystone_url }}"
@@ -230,8 +257,11 @@ keycloak_realm.yaml
       public_client: false
       implicit_flow_enabled: true
       protocol: openid-connect
+    loop:
+      - { name: "{{ cifmw_federation_keycloak_realm }}", client_id: "{{ cifmw_federation_keycloak_client_id }}", client_secret: "{{ cifmw_federation_keycloak_client_secret }}", idp_name: "{{ cifmw_federation_keycloak_idp_name }}" }
+      - { name: "{{ cifmw_federation_keycloak_realm2 }}", client_id: "{{ cifmw_federation_keycloak_client2_id }}", client_secret: "{{ cifmw_federation_keycloak_client2_secret }}", idp_name: "{{ cifmw_federation_keycloak_idp2_name }}" }
 
-  - name: Create a Keycloak group1
+  - name: Create a Keycloak groups
     community.general.keycloak_group:
       auth_client_id: admin-cli
       validate_certs: "{{ cifmw_federation_keycloak_url_validate_certs }}"
@@ -240,22 +270,15 @@ keycloak_realm.yaml
       auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
       auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
       state: present
-      name: "{{ cifmw_federation_keycloak_testgroup1_name }}"
-      realm: "{{ cifmw_federation_keycloak_realm }}"
+      name: "{{ item.name }}"
+      realm: "{{ item.realm }}"
+    loop:
+      - { name: "{{ cifmw_federation_keycloak_testgroup1_name }}", realm: "{{ cifmw_federation_keycloak_realm }}" }
+      - { name: "{{ cifmw_federation_keycloak_testgroup2_name }}", realm: "{{ cifmw_federation_keycloak_realm }}" }
+      - { name: "{{ cifmw_federation_keycloak_testgroup3_name }}", realm: "{{ cifmw_federation_keycloak_realm2 }}" }
+      - { name: "{{ cifmw_federation_keycloak_testgroup4_name }}", realm: "{{ cifmw_federation_keycloak_realm2 }}" }
 
-  - name: Create a Keycloak group2
-    community.general.keycloak_group:
-      auth_client_id: admin-cli
-      validate_certs: "{{ cifmw_federation_keycloak_url_validate_certs }}"
-      auth_keycloak_url: "{{ cifmw_federation_keycloak_url }}/auth"
-      auth_realm: master
-      auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
-      auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
-      state: present
-      name: "{{ cifmw_federation_keycloak_testgroup2_name }}"
-      realm: "{{ cifmw_federation_keycloak_realm }}"
-
-  - name: Create keycloak user1
+  - name: Create keycloak users
     community.general.keycloak_user:
       auth_client_id: admin-cli
       validate_certs: "{{ cifmw_federation_keycloak_url_validate_certs }}"
@@ -264,44 +287,25 @@ keycloak_realm.yaml
       auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
       auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
       state: present
-      realm: "{{ cifmw_federation_keycloak_realm }}"
-      username: "{{ cifmw_federation_keycloak_testuser1_username }}"
-      firstName: firstname1
-      lastName: lastname1
-      email: "{{ cifmw_federation_keycloak_testuser1_username }}@ocp.openstack.lab"
+      realm: "{{ item.realm }}"
+      username: "{{ item.username }}"
+      firstName: "{{ item.username | title }}"
+      lastName: "User"
+      email: "{{ item.username }}@{{ item.realm }}.openstack.lab"
       enabled: true
       emailVerified: false
       credentials:
         - type: password
-          value: "{{ cifmw_federation_keycloak_testuser1_password }}"
+          value: "{{ item.password }}"
           temporary: false
       groups:
-        - name: "{{ cifmw_federation_keycloak_testgroup1_name }}"
+        - name: "{{ item.group }}"
           state: present
-
-  - name: Create keycloak user2
-    community.general.keycloak_user:
-      auth_client_id: admin-cli
-      validate_certs: "{{ cifmw_federation_keycloak_url_validate_certs }}"
-      auth_keycloak_url: "{{ cifmw_federation_keycloak_url }}/auth"
-      auth_realm: master
-      auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
-      auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
-      state: present
-      realm: "{{ cifmw_federation_keycloak_realm }}"
-      username: "{{ cifmw_federation_keycloak_testuser2_username }}"
-      firstName: firstname2
-      lastName: lastname2
-      email: "{{ cifmw_federation_keycloak_testuser2_username }}@ocp.openstack.lab"
-      enabled: true
-      emailVerified: false
-      credentials:
-        - type: password
-          value: "{{ cifmw_federation_keycloak_testuser2_password }}"
-          temporary: false
-      groups:
-        - name: "{{ cifmw_federation_keycloak_testgroup2_name }}"
-          state: present
+    loop:
+      - { username: "{{ cifmw_federation_keycloak_testuser1_username }}", password: "{{ cifmw_federation_keycloak_testuser1_password }}", group: "{{ cifmw_federation_keycloak_testgroup1_name }}", realm: "{{ cifmw_federation_keycloak_realm }}" }
+      - { username: "{{ cifmw_federation_keycloak_testuser2_username }}", password: "{{ cifmw_federation_keycloak_testuser2_password }}", group: "{{ cifmw_federation_keycloak_testgroup2_name }}", realm: "{{ cifmw_federation_keycloak_realm }}" }
+      - { username: "{{ cifmw_federation_keycloak_testuser3_username }}", password: "{{ cifmw_federation_keycloak_testuser3_password }}", group: "{{ cifmw_federation_keycloak_testgroup3_name }}", realm: "{{ cifmw_federation_keycloak_realm2 }}" }
+      - { username: "{{ cifmw_federation_keycloak_testuser4_username }}", password: "{{ cifmw_federation_keycloak_testuser4_password }}", group: "{{ cifmw_federation_keycloak_testgroup4_name }}", realm: "{{ cifmw_federation_keycloak_realm2 }}" }
 ~~~
 
 
@@ -326,21 +330,20 @@ multi_realm_secret.yaml
         cifmw_federation_keystone_idp1_provider_filename: "keycloak-openstack.apps-crc.testing%2Fauth%2Frealms%2Fopenstack.provider"
         cifmw_federation_keystone_idp2_provider_filename: "keycloak-openstack.apps-crc.testing%2Fauth%2Frealms%2Fopenstack2.provider"
 
-    - name: Download realm1 OpenID configuration
+    - name: Download OpenID configuration
       ansible.builtin.uri:
-        url: "{{ cifmw_federation_keystone_OIDC_ProviderMetadataURL }}"
+        url: "{{ item }}"
         method: GET
         return_content: true
-        validate_certs: false
-      register: openid_wellknown_config1
+        validate_certs: "{{ cifmw_federation_keycloak_url_validate_certs }}"
+      loop:
+        - "{{ cifmw_federation_keystone_OIDC_ProviderMetadataURL }}"
+        - "{{ cifmw_federation_keystone_OIDC_ProviderMetadataURL2 }}"
+      register: openid_configs
 
-    - name: Download realm2 OpenID configuration
-      ansible.builtin.uri:
-        url: "{{ cifmw_federation_keystone_OIDC_ProviderMetadataURL2 }}"
-        method: GET
-        return_content: true
-        validate_certs: false
-      register: openid_wellknown_config2
+    - name: Debug openid_configs
+      debug:
+        var: openid_configs
 
     - name: Set federation_config_items
       ansible.builtin.set_fact:
@@ -354,7 +357,7 @@ multi_realm_secret.yaml
             contents: "{{ {'client_id': cifmw_federation_keystone_OIDC_ClientID, 'client_secret': cifmw_federation_keystone_OIDC_ClientSecret } | to_json }}"
           - filename: "{{ cifmw_federation_keystone_idp1_provider_filename }}"
             contents: |
-              {{ openid_wellknown_config1.content }}
+              {{ openid_configs.results[0].content }}
           - filename: "{{ cifmw_federation_keystone_idp2_conf_filename }}"
             contents: |
               {
@@ -364,7 +367,7 @@ multi_realm_secret.yaml
             contents: "{{ {'client_id': cifmw_federation_keystone_OIDC_ClientID2, 'client_secret': cifmw_federation_keystone_OIDC_ClientSecret2 } | to_json }}"
           - filename: "{{ cifmw_federation_keystone_idp2_provider_filename }}"
             contents: |
-              {{ openid_wellknown_config2.content }}
+              {{ openid_configs.results[1].content }}
 
     - name: Generate the final federation_config.json string (as a dictionary)
       ansible.builtin.set_fact:
@@ -375,26 +378,10 @@ multi_realm_secret.yaml
           {% endfor %}
           }
 
-    - name: Final JSON string for Secret stringData
-      ansible.builtin.set_fact:
-        federation_config_json_string: "{{ _raw_federation_config_json_value }}"
-
-    - name: Print the generated JSON string for verification
-      ansible.builtin.debug:
-        var: federation_config_json_string
-
-    - name: Create a Kubernetes Secret with federation metadata
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: v1
-          kind: Secret
-          type: Opaque
-          metadata:
-            name: federation-realm-data
-            namespace: openstack
-          stringData:
-            federation-config.json: "{{ federation_config_json_string }}"
+    - name: Write to file
+      copy:
+        content: "{{ _raw_federation_config_json_value }}"
+        dest: federation_config_string.json
 ~~~
 
 
@@ -434,7 +421,7 @@ alias openstack="oc exec -n openstack -t openstackclient -- openstack"
 openstack domain create SSO
 openstack identity provider create --remote-id https://keycloak-openstack.apps-crc.testing/auth/realms/openstack --domain SSO kcIDP
 
-oc cp rules_sso.json openstack/openstackclient:/home/cloud-admin/rules.json -n openstack
+oc cp rules_sso.json openstack/openstackclient:/home/cloud-admin/rules_sso.json -n openstack
 # To check what was created:
 #   oc exec -t openstackclient -n openstack -- ls
 
@@ -448,7 +435,7 @@ openstack federation protocol create openid --mapping SSOmap --identity-provider
 openstack domain create SSO2
 openstack identity provider create --remote-id https://keycloak-openstack.apps-crc.testing/auth/realms/openstack2 --domain SSO2 kcIDP2
 
-oc cp rules_sso2.json openstack/openstackclient:/home/cloud-admin/rules.json -n openstack
+oc cp rules_sso2.json openstack/openstackclient:/home/cloud-admin/rules_sso2.json -n openstack
 # To check what was created:
 #   oc exec -t openstackclient -n openstack -- ls
 
@@ -462,6 +449,7 @@ openstack federation protocol create openid --mapping SSOmap2 --identity-provide
 oc apply -f keystone-httpd-override.yaml
 # To check what was created:
 #   oc get secret keystone-httpd-override -n openstack
+#   oc get secret keystone-httpd-override -n openstack -o jsonpath='{.data.federation\.conf}' | base64 --decode
 
 
 oc apply -f - <<EOF
@@ -477,6 +465,7 @@ EOF
 # To check what was created:
 #  oc get secret keycloakca -n openstack -o jsonpath='{.data.KeyCloakCA}' | base64 --decode
 
+export EDITOR=vim
 oc edit openstackcontrolplanes.core.openstack.org
 # Under spec/tls add `caBundleSecretName: keycloakca`:
 # spec:
@@ -504,7 +493,7 @@ oc edit openstackcontrolplanes.core.openstack.org
 #         customConfigSecret: keystone-httpd-override # ADDED LINE
 #       memcachedInstance: memcached
 #
-# Under spec/keystone/template add `customServiceConfig` with the following values:
+# Under spec/keystone/template add `customServiceConfig` and `federatedRealmConfig` with the following values:
 # spec:
 #   [..]
 #   keystone:
@@ -513,6 +502,8 @@ oc edit openstackcontrolplanes.core.openstack.org
 #     [...]
 #     template:
 #       adminProject: admin
+#       [...]
+#       federatedRealmConfig: "federation-realm-data"
 #       [...]
 #       trustFlushSuspend: false
 #       # ADDED LINES
@@ -532,6 +523,7 @@ oc edit openstackcontrolplanes.core.openstack.org
 ansible-galaxy collection install community.general
 ansible-playbook keycloak_realm.yaml
 ansible-playbook multi_realm_secret.yaml
+oc apply -f federation_config_secret.yaml
 ~~~
 
 

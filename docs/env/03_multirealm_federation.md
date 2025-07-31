@@ -206,13 +206,10 @@ keycloak_realm.yaml
       auth_realm: master
       auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
       auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
-      id: "{{ item }}"
-      realm: "{{ item }}"
+      id: "{{ cifmw_federation_keycloak_realm }}"
+      realm: "{{ cifmw_federation_keycloak_realm }}"
       enabled: true
       state: present
-    loop:
-      - cifmw_federation_keycloak_realm
-      - cifmw_federation_keycloak_realm2
 
   - name: Create a Keycloak realm2
     community.general.keycloak_realm:
@@ -222,9 +219,10 @@ keycloak_realm.yaml
       auth_realm: master
       auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
       auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
-      id: "openstack2"
-      realm: "openstack2"
+      id: "{{ cifmw_federation_keycloak_realm2 }}"
+      realm: "{{ cifmw_federation_keycloak_realm2 }}"
       enabled: true
+      state: present
 
   - name: Create Keycloak client
     community.general.keycloak_client:
@@ -317,6 +315,7 @@ multi_realm_secret.yaml
   tasks:
     - name: Set facts
       ansible.builtin.set_fact:
+	cifmw_federation_keycloak_url_validate_certs: false
         cifmw_federation_keystone_OIDC_ProviderMetadataURL: "https://keycloak-openstack.apps-crc.testing/auth/realms/openstack/.well-known/openid-configuration"
         cifmw_federation_keystone_OIDC_ProviderMetadataURL2: "https://keycloak-openstack.apps-crc.testing/auth/realms/openstack2/.well-known/openid-configuration"
         cifmw_federation_keystone_idp1_conf_filename: "keycloak-openstack.apps-crc.testing%2Fauth%2Frealms%2Fopenstack.conf"
@@ -378,15 +377,26 @@ multi_realm_secret.yaml
           {% endfor %}
           }
 
-    - name: Write to file
+    - name: Add secret to federation_config_secret.yaml
       copy:
-        content: "{{ _raw_federation_config_json_value }}"
-        dest: federation_config_string.json
+        dest: federation_config_secret.yaml
+        content: |
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: keystone-federation-config-v7
+            namespace: openstack
+          type: Opaque
+          stringData:
+            federation-config.json: |
+              {{ _raw_federation_config_json_value | to_json }}
 ~~~
 
 
 ### Steps
 
+
+#### Keycloak Install
 
 ~~~bash
 oc apply -f rhsso-operator-olm.yaml
@@ -416,7 +426,25 @@ sudo tee -a /etc/hosts > /dev/null << 'EOF'
 EOF
 
 oc extract secret/router-ca --keys=tls.crt -n openshift-ingress-operator
+~~~
 
+
+#### Keycloack Configure
+
+~~~bash
+ansible-galaxy collection install community.general
+
+ansible-playbook keycloak_realm.yaml
+
+ansible-playbook multi_realm_secret.yaml
+
+oc apply -f federation_config_secret.yaml
+~~~
+
+
+#### OpenStack Configure
+
+~~~bash
 alias openstack="oc exec -n openstack -t openstackclient -- openstack"
 openstack domain create SSO
 openstack identity provider create --remote-id https://keycloak-openstack.apps-crc.testing/auth/realms/openstack --domain SSO kcIDP
@@ -518,12 +546,6 @@ oc edit openstackcontrolplanes.core.openstack.org
 #         [auth]
 #         methods = password,token,oauth1,mapped,application_credential,openid
 #       # END OF ADDED LINES
-
-
-ansible-galaxy collection install community.general
-ansible-playbook keycloak_realm.yaml
-ansible-playbook multi_realm_secret.yaml
-oc apply -f federation_config_secret.yaml
 ~~~
 
 

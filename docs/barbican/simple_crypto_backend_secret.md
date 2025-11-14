@@ -56,7 +56,7 @@ EDITOR=vim oc edit secrets not-osp-secret
 #   BarbicanSimpleCryptoKEK: MTIzNDU2Nzg5Cg=
 
 oc get pods | grep barbican
-# Check the pods was recreated
+# Check the pods were recreated
 
 oc rsh -c barbican-api <barbican-api-pod>
 cat /var/lib/config-data/default/00-default.conf | grep kek

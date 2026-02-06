@@ -6,6 +6,154 @@
 1. [Deploy CRC](../env/01_crc_deploy.md)
 
 
+### ATTENTION
+
+On February 06, 2026, to deploy the env to test application credential it's needed to use this image: `quay.io/rh-ee-vfisarov/openstack-operator-index:testing-appcred-support-latest`.
+On the `make openstack` step, it needs to be run like: `OPENSTACK_IMG=quay.io/rh-ee-vfisarov/openstack-operator-index:testing-appcred-support-latest make openstack` and then proceed with the other steps as usual.
+
+
+## For Heat Operator
+
+
+First enable it
+
+~~~bash
+EDITOR=vim oc edit oscp openstack-galera-network-isolation
+# Set spec/heat/enabled to true
+#  heat:
+#    [...]
+#    enabled: true
+~~~
+
+~~~bash
+oc get pods -n openstack | grep heat
+# heat-1cb2-account-create-update-qzp7s         0/1     Completed   0          3m24s
+# heat-api-66f7c68fb4-szbl4                     1/1     Running     0          2m42s
+# heat-cfnapi-6549d6cf46-s2vgl                  1/1     Running     0          2m42s
+# heat-db-create-tkcgn                          0/1     Completed   0          3m25s
+# heat-db-sync-6gz98                            0/1     Completed   0          3m19s
+# heat-engine-654fbf86b-mtrdw                   1/1     Running     0          2m45s
+~~~
+
+
+## Testing
+
+~~~bash
+oc get appcred -n openstack -o yaml
+# apiVersion: v1
+# items: []
+# kind: List
+# metadata:
+#   resourceVersion: ""
+~~~
+
+
+Enable `applicationCredential` for Heat
+
+~~~bash
+# Set spec/applicationCredential/enabled to true
+# spec:
+#   applicationCredential:
+#     enabled: true
+#     expirationDays: 730
+#     gracePeriodDays: 364
+#     roles:
+#     - admin
+#     - service
+#     unrestricted: false
+#
+# Set spec/heat/applicationCredential/enabled to true
+#   heat:
+#     [...]
+#     applicationCredential:
+#       enabled: true
+~~~
+
+~~~bash
+cat <<EOF > ac_cr.yaml
+apiVersion: keystone.openstack.org/v1beta1
+kind: KeystoneApplicationCredential
+metadata:
+  name: ac-heat
+  namespace: openstack
+spec:
+  expirationDays: 2
+  gracePeriodDays: 1
+  passwordSelector: HeatPassword
+  userName: heat
+  secret: osp-secret
+  roles:
+    - admin
+    - service
+  unrestricted: false
+EOF
+~~~
+
+~~~bash
+oc apply -f ac_cr.yaml
+oc get appcred ac-heat -n openstack -o yaml
+oc get secret ac-heat-secret -o yaml
+~~~
+
+~~~bash
+EDITOR=vim oc edit heat heat
+# To add:
+# spec:
+#   expirationDays: 2
+#   gracePeriodDays: 1
+#   passwordSelector: HeatPassword
+#   userName: heat
+#   secret: osp-secret
+#   roles:
+#     - admin
+#     - service
+#   unrestricted: false
+#   [...]
+~~~
+
+~~~bash
+~~~
+
+~~~bash
+~~~
+
+
+~~~bash
+~~~
+
+~~~bash
+cat <<EOF > ac_cr.yaml
+apiVersion: keystone.openstack.org/v1beta1
+kind: KeystoneApplicationCredential
+metadata:
+  name: ac-heat
+  namespace: openstack
+spec:
+  expirationDays: 2
+  gracePeriodDays: 1
+  passwordSelector: HeatPassword
+  userName: heat
+  secret: osp-secret
+  roles:
+    - admin
+    - service
+  unrestricted: false
+EOF
+~~~
+
+
+~~~bash
+~~~
+
+~~~bash
+~~~
+
+## Testing
+
+
+
+# OLD
+
 ## For Heat Operator
 
 
@@ -99,7 +247,57 @@ oc get pods -n openstack | grep heat
 # heat-f994-account-create-update-54z7l         0/1     Completed   0          7m35s
 ~~~
 
+
 ### Testing
+
+~~~bash
+cat <<EOF > ac_cr.yaml
+apiVersion: keystone.openstack.org/v1beta1
+kind: KeystoneApplicationCredential
+metadata:
+  name: ac-heat
+  namespace: openstack
+spec:
+  expirationDays: 2
+  gracePeriodDays: 1
+  passwordSelector: HeatPassword
+  userName: heat
+  secret: osp-secret
+  roles:
+    - admin
+    - service
+  unrestricted: false
+EOF
+~~~
+
+~~~bash
+oc apply -f ac_cr.yaml
+oc get appcred ac-heat -n openstack -o yaml
+oc get secret ac-heat-secret -o yaml
+~~~
+
+~~~bash
+oc edit heat heat
+# To add:
+# spec:
+#   expirationDays: 2
+#   gracePeriodDays: 1
+#   passwordSelector: HeatPassword
+#   userName: heat
+#   secret: osp-secret
+#   roles:
+#     - admin
+#     - service
+#   unrestricted: false
+#   [...]
+~~~
+
+
+~~~bash
+~~~
+
+
+### OLD Testing
 
 ~~~bash
 cd ~/install_yamls

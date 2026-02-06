@@ -1,10 +1,7 @@
-# WIP - Deploy Custom Operator
+# Deploy Custom Operator
 
 
 ## Prerequisite
-
-1. [Deploy CRC](../env/01_crc_deploy.md)
-
 
 ### ATTENTION
 
@@ -17,6 +14,8 @@ OPENSTACK_IMG=quay.io/rh-ee-vfisarov/openstack-operator-index:testing-appcred-su
 ~~~
 
 Proceed with the other steps as usual.
+
+[Deploy CRC](../env/01_crc_deploy.md)
 
 
 ## For Heat Operator

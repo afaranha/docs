@@ -6,6 +6,7 @@
 ### ATTENTION
 
 On February 06, 2026, to deploy the env to test application credential it's needed to use this image: `quay.io/rh-ee-vfisarov/openstack-operator-index:testing-appcred-support-latest`.
+(Would be nice to have a doc on how to generate this image)
 
 On the `make openstack` step, it needs to be run like:
 
@@ -20,7 +21,7 @@ Proceed with the other steps as usual.
 
 ## For Heat Operator
 
-First enable it:
+First enable Heat:
 
 ~~~bash
 EDITOR=vim oc edit oscp openstack-galera-network-isolation

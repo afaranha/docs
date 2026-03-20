@@ -174,6 +174,159 @@ openstack role add --group SSOgroup --group-domain SSO --project SSOproject --pr
 openstack federation protocol create openid --mapping SSOmap --identity-provider kcIDP
 ~~~
 
+~~~bash
+touch keycloak_realm.yaml
+~~~
+
+keycloak_realm.yaml
+~~~bash
+- name: Run federation SSO setup
+  hosts: "{{ cifmw_target_host | default('localhost') }}"
+  gather_facts: true
+  tasks:
+  - name: set my facts
+    ansible.builtin.set_fact:
+      cifmw_federation_keycloak_url: "https://keycloak-openstack.apps-crc.testing"
+      cifmw_federation_keycloak_admin_username: admin
+      cifmw_federation_keycloak_admin_password: nomoresecrets
+      cifmw_federation_keycloak_realm: openstack
+      cifmw_federation_keycloak_client_id: rhoso
+      cifmw_federation_keystone_url: "https://keystone-public-openstack.apps-crc.testing"
+      cifmw_federation_keycloak_client_secret: COX8bmlKAWn56XCGMrKQJj7dgHNAOl6f
+      cifmw_federation_horizon_url: "https://horizon-openstack.apps-crc.testing"
+      cifmw_federation_keycloak_url_validate_certs: false
+      cifmw_federation_keycloak_testgroup1_name: kctestgroup1
+      cifmw_federation_keycloak_testgroup2_name: kctestgroup2
+      cifmw_federation_keycloak_testuser1_username: kctestuser1
+      cifmw_federation_keycloak_testuser1_password: nomoresecrets1
+      cifmw_federation_keycloak_testuser2_username: kctestuser2
+      cifmw_federation_keycloak_testuser2_password: nomoresecrets2
+
+  - name: Create a Keycloak realm
+    community.general.keycloak_realm:
+      auth_client_id: admin-cli
+      validate_certs: false
+      auth_keycloak_url: "{{ cifmw_federation_keycloak_url }}/auth"
+      auth_realm: master
+      auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
+      auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
+      id: "{{ cifmw_federation_keycloak_realm }}"
+      realm: "{{ cifmw_federation_keycloak_realm }}"
+      enabled: true
+      state: present
+
+  - name: Create Keycloak client
+    community.general.keycloak_client:
+      auth_client_id: admin-cli
+      validate_certs: false
+      auth_keycloak_url: "{{ cifmw_federation_keycloak_url }}/auth"
+      auth_realm: master
+      auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
+      auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
+      state: present
+      realm: "{{ cifmw_federation_keycloak_realm }}"
+      client_id: "{{ cifmw_federation_keycloak_client_id }}"
+      name: 'RHOSO Client'
+      description: 'RHOSO client for keystone federation'
+      root_url: "{{ cifmw_federation_keystone_url }}"
+      admin_url: "{{ cifmw_federation_keystone_url }}"
+      base_url: '/dashboard/project'
+      enabled: true
+      client_authenticator_type: client-secret
+      secret: "{{ cifmw_federation_keycloak_client_secret }}"
+      redirect_uris:
+        - "{{ cifmw_federation_keystone_url }}/v3/auth/OS-FEDERATION/identity_providers/kcIDP/protocols/openid/websso/"
+        - "{{ cifmw_federation_keystone_url }}/v3/auth/OS-FEDERATION/websso/openid"
+        - "{{ cifmw_federation_horizon_url }}/dashboard/auth/websso/"
+      web_origins:
+        - "{{ cifmw_federation_keystone_url }}"
+        - "{{ cifmw_federation_horizon_url }}"
+      bearer_only: false
+      public_client: false
+      implicit_flow_enabled: true
+      protocol: openid-connect
+
+  - name: Create a Keycloak group1
+    community.general.keycloak_group:
+      auth_client_id: admin-cli
+      validate_certs: "{{ cifmw_federation_keycloak_url_validate_certs }}"
+      auth_keycloak_url: "{{ cifmw_federation_keycloak_url }}/auth"
+      auth_realm: master
+      auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
+      auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
+      state: present
+      name: "{{ cifmw_federation_keycloak_testgroup1_name }}"
+      realm: "{{ cifmw_federation_keycloak_realm }}"
+
+  - name: Create a Keycloak group2
+    community.general.keycloak_group:
+      auth_client_id: admin-cli
+      validate_certs: "{{ cifmw_federation_keycloak_url_validate_certs }}"
+      auth_keycloak_url: "{{ cifmw_federation_keycloak_url }}/auth"
+      auth_realm: master
+      auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
+      auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
+      state: present
+      name: "{{ cifmw_federation_keycloak_testgroup2_name }}"
+      realm: "{{ cifmw_federation_keycloak_realm }}"
+
+  - name: Create keycloak user1
+    community.general.keycloak_user:
+      auth_client_id: admin-cli
+      validate_certs: "{{ cifmw_federation_keycloak_url_validate_certs }}"
+      auth_keycloak_url: "{{ cifmw_federation_keycloak_url }}/auth"
+      auth_realm: master
+      auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
+      auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
+      state: present
+      realm: "{{ cifmw_federation_keycloak_realm }}"
+      username: "{{ cifmw_federation_keycloak_testuser1_username }}"
+      firstName: firstname1
+      lastName: lastname1
+      email: "{{ cifmw_federation_keycloak_testuser1_username }}@ocp.openstack.lab"
+      enabled: true
+      emailVerified: false
+      credentials:
+        - type: password
+          value: "{{ cifmw_federation_keycloak_testuser1_password }}"
+          temporary: false
+      groups:
+        - name: "{{ cifmw_federation_keycloak_testgroup1_name }}"
+          state: present
+
+  - name: Create keycloak user2
+    community.general.keycloak_user:
+      auth_client_id: admin-cli
+      validate_certs: "{{ cifmw_federation_keycloak_url_validate_certs }}"
+      auth_keycloak_url: "{{ cifmw_federation_keycloak_url }}/auth"
+      auth_realm: master
+      auth_username: "{{ cifmw_federation_keycloak_admin_username }}"
+      auth_password: "{{ cifmw_federation_keycloak_admin_password }}"
+      state: present
+      realm: "{{ cifmw_federation_keycloak_realm }}"
+      username: "{{ cifmw_federation_keycloak_testuser2_username }}"
+      firstName: firstname2
+      lastName: lastname2
+      email: "{{ cifmw_federation_keycloak_testuser2_username }}@ocp.openstack.lab"
+      enabled: true
+      emailVerified: false
+      credentials:
+        - type: password
+          value: "{{ cifmw_federation_keycloak_testuser2_password }}"
+          temporary: false
+      groups:
+        - name: "{{ cifmw_federation_keycloak_testgroup2_name }}"
+          state: present
+~~~
+
+~~~bash
+ansible-galaxy collection install community.general
+ansible-playbook keycloak_realm.yaml
+~~~
+
+~~~bash
+~~~
+
 
 ## Testing
 
@@ -193,6 +346,27 @@ oc exec -t openstackclient -- env -u OS_CLOUD - \
 ~~~
 
 ~~~bash
+OIDC_TOKEN=$(curl -s -X POST \
+  "https://keycloak-openstack.apps-crc.testing/auth/realms/openstack/protocol/openid-connect/token" \
+  -d "grant_type=password" \
+  -d "client_id=rhoso" \
+  -d "client_secret=COX8bmlKAWn56XCGMrKQJj7dgHNAOl6f" \
+  -d "username=kctestuser1" \
+  -d "password=nomoresecrets1" \
+  --cacert tls.crt | jq -r '.access_token')
+echo $OIDC_TOKEN
+
+oc exec -t openstackclient -n openstack -- env -u OS_CLOUD - \
+    OS_AUTH_URL=https://keystone-public-openstack.apps-crc.testing/v3 \
+    OS_AUTH_TYPE=v3oidcaccesstoken \
+    OS_IDENTITY_PROVIDER=kcIDP \
+    OS_PROTOCOL=openid \
+    OS_ACCESS_TOKEN="$OIDC_TOKEN" \
+    OS_PROJECT_NAME=SSOproject \
+    OS_PROJECT_DOMAIN_NAME=SSO \
+    openstack token issue
+# Attempted to authenticate with an unsupported method. (HTTP 401) (Request-ID: req-bf101d76-8960-46c3-86e6-99fe9ec4ea1f)
+# command terminated with exit code 1
 ~~~
 
 ~~~bash
